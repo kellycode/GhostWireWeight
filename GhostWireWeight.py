@@ -2,16 +2,17 @@ import bpy
 import gpu
 import gpu_extras.batch
 import bgl
+import bmesh
 
 # アドオン情報（名前やバージョンなど）
 bl_info = {
     "name": "Ghost Wire Weight",
     "author": "Pon Pon Games",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (3, 2, 1),
     "location": "3D Viewport > Right side of Header",
     "description": "This shows wireframe with X-Ray on Wight Pain Mode.",
-    "warning": "At this version, this does not support Modifier. Set bound pose to your character when you paint it.",
+    "warning": "Not enough debugging. This addon can cause crashes.",
     "support": "TESTING",
     "doc_url": "",
     "tracker_url": "",
@@ -20,8 +21,11 @@ bl_info = {
 
 g_draw_handle = None
 g_shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+
 g_batch = None
+
 g_last_mode = ""
+g_last_frame = -99999
 g_does_draw = False
 
 # Log
@@ -55,6 +59,10 @@ class GhostWireWeight_OT_ModeController(bpy.types.Operator):
             start_draw()
         else:
             stop_draw()
+            # 再描画
+            for area in bpy.context.window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
 
         return {'FINISHED'}
 
@@ -71,25 +79,45 @@ def add_toggle_button(self, context):
             row.active = False
             if bpy.app.timers.is_registered(update_ghost) == True:
                 row.active = True
-            label = "Ghost Wire"
+            label = "Ghost Wire"            
             row.operator(GhostWireWeight_OT_ModeController.bl_idname, text=label)
 
-# モードの監視とバッチの更新
+# モードとフレームの監視とバッチの更新
 # タイマーにより定期的に呼ばれます。
 def update_ghost():
     print_log("update_ghost is called", 2)
     
     global g_last_mode
+    global g_last_frame
     global g_does_draw
+    
+    does_recreate = False
+    
+    # モード変更をチェック
     mode = bpy.context.active_object.mode
     if mode == "WEIGHT_PAINT":
         g_does_draw = True
         if g_last_mode != "WEIGHT_PAINT":
-            recreate_batch()
+            does_recreate = True
     else:
         g_does_draw = False
-    
     g_last_mode = mode
+
+    # フレーム変更をチェック
+    frame = bpy.context.scene.frame_current
+    if mode == "WEIGHT_PAINT":
+        if frame != g_last_frame:
+            does_recreate = True
+    g_last_frame = frame    
+    
+    # バッチの作り直し
+    if does_recreate == True:
+        recreate_batch()
+
+        # 再描画
+        for area in bpy.context.window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()    
     
     return 0.1
 
@@ -126,19 +154,31 @@ def recreate_batch():
         mesh = bpy.context.active_object.data # bpy_types.mesh
         if mesh != None:
                 
-            for vertex in mesh.vertices: # bpy.types.MeshVertex
+            # モディファイア適用済みのメッシュを取得
+            depsgraph = bpy.context.evaluated_depsgraph_get()
+            evaluated_object = bpy.context.active_object.evaluated_get(depsgraph)
+            evaluated_mesh = evaluated_object.to_mesh()
+                
+            # ワールドに変換
+            evaluated_mesh.transform(bpy.context.active_object.matrix_world)
+                
+            # 頂点
+            for vertex in evaluated_mesh.vertices: # bpy.types.MeshVertex
 
                 # co is class Vector
                 coTuple = (vertex.co[0], vertex.co[1], vertex.co[2])
                 coords = coords + (coTuple, )
             
-            for edge in mesh.edges: # bpy_types.MeshEdge
+            # 辺
+            for edge in evaluated_mesh.edges: # bpy_types.MeshEdge
 
                 index0 = edge.vertices[0]
                 index1 = edge.vertices[1]
 
                 indexTuple = (index0, index1)
                 indices = indices + (indexTuple, )
+
+            evaluated_object.to_mesh_clear()
 
     global g_batch
     global g_shader
@@ -151,6 +191,18 @@ def recreate_batch():
 def start_draw():
     print_log("add_update_timer is called.", 1)
 
+    global g_batch
+    if g_batch != None:
+        del g_batch
+    g_batch = None
+
+    global g_last_mode
+    global g_last_frame
+    global g_does_draw
+    g_last_mode = ""
+    g_last_frame = -9999
+    g_does_draw = False
+    
     if bpy.app.timers.is_registered(update_ghost) == False:
         bpy.app.timers.register(update_ghost, first_interval=0.1, persistent=False)
 
