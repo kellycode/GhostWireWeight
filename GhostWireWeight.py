@@ -1,26 +1,23 @@
-import bpy
-import gpu
-import gpu_extras.batch
-import bgl
-import bmesh
-
-# アドオン情報（名前やバージョンなど）
 bl_info = {
     "name": "Ghost Wire Weight",
     "author": "Pon Pon Games",
-    "version": (1, 1),
-    "blender": (3, 2, 1),
+    "version": (1, 2),
+    "blender": (4, 1, 1),
     "location": "3D Viewport > Right side of Header",
     "description": "This shows wireframe with X-Ray on Wight Pain Mode.",
     "warning": "Not enough debugging. This addon can cause crashes.",
-    "support": "TESTING",
     "doc_url": "",
     "tracker_url": "",
     "category": "3D View"
 }
 
+import bpy
+import gpu
+import gpu_extras.batch
+import bmesh
+
 g_draw_handle = None
-g_shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR')
+g_shader = gpu.shader.from_builtin('UNIFORM_COLOR')
 
 g_batch = None
 
@@ -131,13 +128,16 @@ def draw_wire(dummy):
     global g_shader
     if g_does_draw == True:
         if g_batch != None and g_shader != None:
-            bgl.glEnable(bgl.GL_BLEND)
-            bgl.glDisable(bgl.GL_DEPTH_TEST)
+            last_blend = gpu.state.blend_get()
+            last_depth_test = gpu.state.depth_test_get()
+            gpu.state.blend_set("ALPHA")
+            gpu.state.depth_test_set("ALWAYS")
             g_shader.bind()
             g_shader.uniform_float("color", (1.0, 1.0, 1.0, 0.1))
+            #g_shader.uniform_float("lineWidth", 5)
             g_batch.draw(g_shader)
-            bgl.glDisable(bgl.GL_BLEND)
-            bgl.glEnable(bgl.GL_DEPTH_TEST)
+            gpu.state.blend_set(last_blend)
+            gpu.state.depth_test_set(last_depth_test)
             
 # バッチの更新
 # アクティブオブジェクトのメッシュの辺を取得します。
