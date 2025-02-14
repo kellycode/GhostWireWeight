@@ -34,11 +34,10 @@ def print_log(text, level):
     if level <= level_max:
         print(text)
 
-# Blender起動後の初回のアドオン有効時だけ呼ばれます。
-print_log("Ghost Wire Weight is called", 1)
+# This is called only the first time the add-on is enabled after starting Blender.print_log("Ghost Wire Weight is called", 1)
 
-# 制御オペレータ
-# 描画ルーチンの起動状態をトグルします。UIに追加したボタンから呼ばれます。
+# Control operator
+# Toggles the running state of the drawing routine. Called from a button added to the UI。
 class GhostWireWeight_OT_ModeController(bpy.types.Operator):
     bl_idname = "ghostwireweight.modecontroller"
     bl_label = "Ghost Wire Weight"
@@ -67,8 +66,8 @@ class GhostWireWeight_OT_ModeController(bpy.types.Operator):
         print_log("ModeController.invoke is called", 1)
         return self.execute(context)
 
-# ボタンの追加
-# 3DViewのヘッダの再描画時にBlenderから呼ばれます。
+# Add button
+# Called by Blender when redrawing the 3DView header.
 def add_toggle_button(self, context):
     if context.active_object != None:
         if context.active_object.mode == "WEIGHT_PAINT":
@@ -79,8 +78,8 @@ def add_toggle_button(self, context):
             label = "Ghost Wire"            
             row.operator(GhostWireWeight_OT_ModeController.bl_idname, text=label)
 
-# モードとフレームの監視とバッチの更新
-# タイマーにより定期的に呼ばれます。
+# Monitor modes and frames and update batches
+# Called periodically by a timer.
 def update_ghost():
     print_log("update_ghost is called", 2)
     
@@ -90,7 +89,7 @@ def update_ghost():
     
     does_recreate = False
     
-    # モード変更をチェック
+    # Check for mode change
     mode = bpy.context.active_object.mode
     if mode == "WEIGHT_PAINT":
         g_does_draw = True
@@ -100,14 +99,14 @@ def update_ghost():
         g_does_draw = False
     g_last_mode = mode
 
-    # フレーム変更をチェック
+    # Check for frame changes
     frame = bpy.context.scene.frame_current
     if mode == "WEIGHT_PAINT":
         if frame != g_last_frame:
             does_recreate = True
     g_last_frame = frame    
     
-    # バッチの作り直し
+    # Recreate the batch
     if does_recreate == True:
         recreate_batch()
 
@@ -118,8 +117,8 @@ def update_ghost():
     
     return 0.1
 
-# 描画
-# 3DViewの再描画時に呼ばれます。
+# Drawing
+# Called when the 3DView is redrawn.
 def draw_wire(dummy):
     print_log("draw_wire is called", 2)
 
@@ -139,8 +138,8 @@ def draw_wire(dummy):
             gpu.state.blend_set(last_blend)
             gpu.state.depth_test_set(last_depth_test)
             
-# バッチの更新
-# アクティブオブジェクトのメッシュの辺を取得します。
+# Batch update
+# Get the mesh edges of the active object.
 def recreate_batch():
     print_log("recreate_batch is called.", 1)
 
@@ -154,22 +153,22 @@ def recreate_batch():
         mesh = bpy.context.active_object.data # bpy_types.mesh
         if mesh != None:
                 
-            # モディファイア適用済みのメッシュを取得
+            # Get the mesh with modifier applied
             depsgraph = bpy.context.evaluated_depsgraph_get()
             evaluated_object = bpy.context.active_object.evaluated_get(depsgraph)
             evaluated_mesh = evaluated_object.to_mesh()
                 
-            # ワールドに変換
+            # Convert to world
             evaluated_mesh.transform(bpy.context.active_object.matrix_world)
                 
-            # 頂点
+            # Vertex
             for vertex in evaluated_mesh.vertices: # bpy.types.MeshVertex
 
                 # co is class Vector
                 coTuple = (vertex.co[0], vertex.co[1], vertex.co[2])
                 coords = coords + (coTuple, )
             
-            # 辺
+            # Side
             for edge in evaluated_mesh.edges: # bpy_types.MeshEdge
 
                 index0 = edge.vertices[0]
@@ -186,8 +185,8 @@ def recreate_batch():
         g_shader, "LINES", {"pos": coords}, indices=indices
     )
 
-# 描画開始
-# タイマーの登録(update_ghost)と、描画ハンドラの追加(draw_wire)
+# Start drawing
+# Register the timer (update_ghost) and add the drawing handler (draw_wire)
 def start_draw():
     print_log("add_update_timer is called.", 1)
 
@@ -212,8 +211,8 @@ def start_draw():
             draw_wire, (None, ), "WINDOW", "POST_VIEW"
         )
 
-# 描画終了
-# タイマーの解除(update_ghost)と、描画ハンドラの削除(draw_wire)
+# End of drawing
+# Cancel the timer (update_ghost) and remove the drawing handler (draw_wire)
 def stop_draw():
     print_log("unregister_update_timer is called.", 1)
 
@@ -225,24 +224,24 @@ def stop_draw():
         bpy.types.SpaceView3D.draw_handler_remove(g_draw_handle, "WINDOW")
     g_draw_handle = None
 
-# ファイル読み込み時に、確実に初期状態にします。
-# draw_handlerはそのままだとblendファイルをまたいで存在してしまうので、
-# 強制的に削除します。
+# When loading a file, make sure to reset it to its initial state.
+# If draw_handler is left as is, it will exist across blend files,
+# so we will force delete it.
 @bpy.app.handlers.persistent
 def reset_status_on_load_post(scene):
     print_log("reset_status_on_load_post is called.", 1)
     stop_draw()
 
-# アドオンを有効にしたときにBlenderから呼ばれます。
-# このとき、bpy.dataとbpy.contextにアクセス不可。
+# Called by Blender when the add-on is enabled.
+# At this time, bpy.data and bpy.context are not accessible.
 def register():
     print_log("register is called.", 1)
     bpy.utils.register_class(GhostWireWeight_OT_ModeController)
     bpy.types.VIEW3D_HT_tool_header.append(add_toggle_button)
     bpy.app.handlers.load_post.append(reset_status_on_load_post)
 
-# アドオンを無効にしたときにBlenderから呼ばれます。
-# このとき、bpy.dataとbpy.contextにアクセス不可。
+# Called by Blender when the addon is disabled.
+# In this case, bpy.data and bpy.context are inaccessible.。
 def unregister():
     print_log("unregister is called", 1)
     bpy.app.handlers.load_post.remove(reset_status_on_load_post)
@@ -250,7 +249,7 @@ def unregister():
     bpy.utils.unregister_class(GhostWireWeight_OT_ModeController)
     stop_draw()
 
-# Blenderのテキストエディタで呼んだときの処理（デバッグ用）
+# Processing when called from Blender's text editor (for debugging)
 if __name__ == "__main__":
     print_log("Ghost Wire Weight is called from main", 1)
     register()
