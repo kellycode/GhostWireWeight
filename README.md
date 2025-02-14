@@ -1,4 +1,4 @@
-Kellycode Feb 2025: It works perfectly in Blender 4.3, G translated python comments to english
+Kellycode Feb 2025: It works perfectly in Blender 4.3, I Google translated python comments to english
 
 ![x-ray in weight paint](https://github.com/kellycode/GhostWireWeight/blob/main/screen_shot.jpg)
 
