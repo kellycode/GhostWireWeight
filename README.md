@@ -1,4 +1,4 @@
-Kellycode Feb 2025: It works oerfectly in Blender 4.3, G translated python comments to english
+Kellycode Feb 2025: It works perfectly in Blender 4.3, G translated python comments to english
 
 # GhostWireWeight
 This is a Blender add-on that shows wireframe with X-Ray on Weight Paint Mode.
