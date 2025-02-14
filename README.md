@@ -1,6 +1,6 @@
 Kellycode Feb 2025: It works perfectly in Blender 4.3, G translated python comments to english
 
-![x-ray in weight paint](https://kellycode.github.io/GhostWireWeight/screen_shot.jpg)
+![x-ray in weight paint]([https://kellycode.github.io/GhostWireWeight/screen_shot.jpg](https://github.com/kellycode/GhostWireWeight/blob/main/screen_shot.jpg))
 
 # GhostWireWeight
 This is a Blender add-on that shows wireframe with X-Ray on Weight Paint Mode.
